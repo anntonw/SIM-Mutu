@@ -20,6 +20,13 @@ A simple Node.js + Express + Tailwind CSS web application to manage questionnair
 - CSV export & PDF print
 - Session-based auth
 
+## ⚙️ Persiapan
+
+- install node.js
+- install PostgreSQL
+- Buat folder "uploads"
+- copy file env.example -> rename .env
+
 ## ⚙️ Run Locally
 
 ```bash
