@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Dashboard</title>
+  <link href="/css/output.css" rel="stylesheet" />
+</head>
+<body class="flex flex-col min-h-screen bg-gray-100">
+
+  <!-- Header Navbar -->
+  <header class="bg-white shadow w-full flex items-center justify-between px-6 py-4">
+    <div class="flex items-center gap-4">
+      <button id="toggleSidebar" class="lg:hidden p-2 rounded hover:bg-gray-200">
+        <!-- Hamburger Icon -->
+        <svg class="h-6 w-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+      <h1 class="text-xl font-bold text-gray-800 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7 text-blue-600" fill="none"
+          viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M9 17v-2a4 4 0 00-4-4H5a2 2 0 00-2 2v5a2 2 0 002 2h5a2 2 0 002-2zM15 7V5a2 2 0 00-2-2h-5a2 2 0 00-2 2v5a2 2 0 002 2h2m6 4h2a2 2 0 012 2v5a2 2 0 01-2 2h-5a2 2 0 01-2-2v-2" />
+        </svg>
+        SIM-Mutu
+      </h1>
+    </div>
+    <button onclick="logout()"
+      class="flex items-center gap-1 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600 cursor-pointer">
+      🔓 Logout
+    </button>
+  </header>
+
+  <!-- LAYOUT -->
+  <div class="flex flex-1">
+    <!-- SIDEBAR -->
+    <aside id="sidebar"
+      class="bg-white shadow-md w-64 lg:translate-x-0 -translate-x-full fixed lg:static inset-y-0 left-0 transition-transform duration-200 z-50">
+      <div class="p-6">
+        <nav id="sidebarNav" class="space-y-2"></nav>
+      </div>
+    </aside>
+
+    <!-- Content -->
+    <main class="flex-1 p-8">
+      <h2 class="text-3xl font-bold">Laporan Pengisian Indikator Mutu</h2>
+      <label class="block italic mb-4">( Silahkan lengkapi form dibawah untuk melihat laporan )</label>
+
+      <div class="mb-4">
+        <label class="block font-semibold mb-1">Pilih Jenis Indikator</label>
+        <label class="block italic mb-1">*Diambil dari jenis indikator mutu yang telah ditetapkan di menu <a href="/master-kategori" class="text-blue-600"> jenis indikator mutu </a></label>
+        <select id="rekapKategori" class="border p-2 rounded w-1/3"></select>
+      </div>
+
+      <div class="mb-4">
+        <label class="block font-semibold mb-1">Pilih Bulan</label>
+        <input type="month" id="rekapBulan" class="border p-2 rounded w-1/3">
+      </div>
+
+      <div class="mb-4">
+        <label class="block font-semibold mb-1">Mode Nilai</label>
+        <select id="modeTampilan" class="border p-2 rounded w-1/3">
+          <option value="angka">Angka (num/denum)</option>
+          <option value="persen">Persen (%)</option>
+        </select>
+      </div>
+      <label class="block italic mb-1">*Nilai yang diambil berdasarkan nilai yang sudah dientri di <a href="/form-nilai" class="text-blue-600"> Form Entri Nilai IMUT </a> dimasing-masing unit</label>
+
+      <div class="mb-4 space-x-2">
+        <button onclick="loadRekap()" class="px-4 py-2 bg-blue-600 text-white rounded">🔍 Tampilkan Laporan</button>
+        <button onclick="exportCSV()" class="px-4 py-2 bg-green-600 text-white rounded">⬇️ Export CSV</button>
+        <button onclick="window.print()" class="px-4 py-2 bg-red-600 text-white rounded">⬇️ Export PDF</button>
+      </div>
+
+      <div id="rekapContainer"></div>
+    </main>
+  </div>
+
+  <script>
+    let lastRekap = { pertanyaan: [], rekap: {}, bulan: '', days: [] };
+    let userRole = '';
+
+    async function loadSessionUser() {
+      const res = await fetch('/me');
+      if (res.ok) {
+        const user = await res.json();
+        userRole = user.role;
+        console.log('Login sebagai:', userRole);
+      } else {
+        alert('Session habis! Silakan login ulang.');
+        window.location.href = '/login';
+      }
+    }
+
+    function renderSidebar() {
+      const nav = document.getElementById('sidebarNav');
+      const path = window.location.pathname;
+      nav.innerHTML = '';
+
+      nav.innerHTML += navItem('/dashboard', 'Dashboard', dashboardIcon(), path);
+      nav.innerHTML += navItem('/form-nilai', 'Form Entri Nilai IMUT', formIcon(), path);
+
+      if (userRole === 'admin') {
+        nav.innerHTML += navItem('/master-lokasi', 'Area Kerja', lokasiIcon(), path);
+        nav.innerHTML += navItem('/master-user', 'Pengguna', userIcon(), path);
+        nav.innerHTML += navItem('/master-kategori', 'Jenis Indikator Mutu', kategoriIcon(), path);
+        nav.innerHTML += navItem('/master-pertanyaan', 'Indikator Mutu', pertanyaanIcon(), path);
+        nav.innerHTML += navItem('/mapping', 'Mapping Indikator ke Pengguna', mappingIcon(), path);
+      }
+    }
+
+    function navItem(href, label, icon, currentPath) {
+      const active = currentPath.includes(href) ? 'bg-blue-100 text-blue-700 font-semibold' : 'hover:bg-gray-100';
+      return `
+        <a href="${href}" class="flex items-center px-4 py-2 rounded ${active}">
+          ${icon}
+          <span class="ml-3">${label}</span>
+        </a>
+      `;
+    }
+
+    // Icon helper (contoh beberapa)
+    function dashboardIcon() {
+      return `<svg class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h4v11H3zM17 10h4v11h-4zM10 3h4v18h-4z" />
+      </svg>`;
+    }
+
+    function formIcon() {
+      return `<svg class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+      </svg>`;
+    }
+
+    function lokasiIcon() {
+      return `<svg class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c1.38 0 2.5-1.12 2.5-2.5S13.38 6 12 6s-2.5 1.12-2.5 2.5S10.62 11 12 11zM12 11c-4 0-7 2.69-7 6v2h14v-2c0-3.31-3-6-7-6z" />
+      </svg>`;
+    }
+
+    function userIcon() {
+      return `<svg class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A4 4 0 017 14h10a4 4 0 011.879 3.804M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>`;
+    }
+
+    function kategoriIcon() {
+      return `<svg class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18" />
+      </svg>`;
+    }
+
+    function pertanyaanIcon() {
+      return `<svg class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M21 16H3M21 8H3" />
+      </svg>`;
+    }
+
+    function mappingIcon() {
+      return `<svg class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>`;
+    }
+
+    function logoutIcon() {
+      return `<svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 002 2h5a2 2 0 002-2v-1m-7-4V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h5a2 2 0 002-2z" />
+      </svg>`;
+    }
+
+    document.getElementById('toggleSidebar').addEventListener('click', () => {
+      const sidebar = document.getElementById('sidebar');
+      sidebar.classList.toggle('-translate-x-full');
+    });
+
+    async function loadRekapKategori() {
+      const res = await fetch('/api/kategori');
+      const json = await res.json();
+      const select = document.getElementById('rekapKategori');
+      select.innerHTML = '<option value="">Pilih Jenis...</option>';
+      json.data.forEach(k => {
+        select.innerHTML += `<option value="${k.id}">${k.nama}</option>`;
+      });
+    }
+
+    async function loadRekap() {
+      if (!userRole) await loadSessionUser();
+
+      const kategoriId = document.getElementById('rekapKategori').value;
+      const bulan = document.getElementById('rekapBulan').value;
+      const mode = document.getElementById('modeTampilan').value;
+
+      if (!kategoriId || !bulan) {
+        alert('Pilih kategori & bulan!');
+        return;
+      }
+
+      const res = await fetch(`/api/rekap?kategoriId=${kategoriId}&bulan=${bulan}`);
+      const json = await res.json();
+
+      const pertanyaan = json.pertanyaan;
+      const rekap = json.rekap;
+
+      const daysInMonth = new Date(parseInt(bulan.split('-')[0]), parseInt(bulan.split('-')[1]), 0).getDate();
+      const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+      let html = `<div class="overflow-x-auto"><table class="w-full border border-collapse bg-white">`;
+
+      if (userRole === 'user') {
+        html += `<thead class="bg-gray-200"><tr><th class="border p-2">Judul Pertanyaan</th>`;
+        days.forEach(d => html += `<th class="border p-2">${String(d).padStart(2, '0')}</th>`);
+        html += `</tr></thead><tbody>`;
+
+        pertanyaan.forEach(p => {
+          html += `<tr class="hover:bg-gray-50"><td class="border p-2 font-medium">${p.judul}</td>`;
+          days.forEach(d => {
+            const tgl = `${bulan}-${String(d).padStart(2, '0')}`;
+            const cell = rekap[p.id]?.[tgl];
+            let val = '0';
+            if (cell) {
+              val = mode === 'persen'
+                ? `${((cell.numerator / cell.denumerator) * 100).toFixed(2)}%`
+                : `${cell.numerator}/${cell.denumerator}`;
+            }
+            html += `<td class="border p-2 text-center">${val}</td>`;
+          });
+          html += `</tr>`;
+        });
+
+      } else {
+        html += `<thead class="bg-gray-200">
+          <tr>
+            <th class="border p-2">Indikator Mutu</th>
+            <th class="border p-2">Total Numerator</th>
+            <th class="border p-2">Total Denumerator</th>
+            <th class="border p-2">Total</th>
+          </tr></thead><tbody>`;
+
+        pertanyaan.forEach(p => {
+          let totalNum = 0, totalDen = 0;
+          Object.keys(rekap[p.id] || {}).forEach(tgl => {
+            totalNum += rekap[p.id][tgl].numerator;
+            totalDen += rekap[p.id][tgl].denumerator;
+          });
+
+          let totalVal = '0';
+          if (totalDen > 0) {
+            totalVal = mode === 'persen'
+              ? `${((totalNum / totalDen) * 100).toFixed(2)}%`
+              : `${totalNum}/${totalDen}`;
+          }
+
+          html += `<tr class="hover:bg-gray-50">
+            <td class="border p-2">${p.judul}</td>
+            <td class="border p-2 text-center">${totalNum}</td>
+            <td class="border p-2 text-center">${totalDen}</td>
+            <td class="border p-2 text-center">${totalVal}</td>
+          </tr>`;
+        });
+      }
+
+      html += `</tbody></table></div>`;
+      document.getElementById('rekapContainer').innerHTML = html;
+
+      lastRekap = { pertanyaan, rekap, bulan, days };
+    }
+
+    function logout() {
+      fetch('/logout', { method: 'POST' })
+        .then(() => window.location.href = '/login')
+        .catch(err => alert('Logout gagal!'));
+    }
+
+    function exportCSV() {
+      if (!lastRekap.pertanyaan.length) {
+        alert('Tampilkan dulu datanya!');
+        return;
+      }
+
+      const mode = document.getElementById('modeTampilan').value;
+      const rows = [];
+
+      if (userRole === 'user') {
+        const header = ['Judul Pertanyaan', ...lastRekap.days.map(d => String(d).padStart(2, '0'))];
+        rows.push(header);
+
+        lastRekap.pertanyaan.forEach(p => {
+          const row = [p.judul];
+          lastRekap.days.forEach(d => {
+            const tgl = `${lastRekap.bulan}-${String(d).padStart(2, '0')}`;
+            const cell = lastRekap.rekap[p.id]?.[tgl];
+            let val = '0';
+            if (cell) {
+              val = mode === 'persen'
+                ? `${((cell.numerator / cell.denumerator) * 100).toFixed(2)}%`
+                : `${cell.numerator}/${cell.denumerator}`;
+            }
+            row.push(val);
+          });
+          rows.push(row);
+        });
+
+      } else {
+        rows.push(['Judul Pertanyaan', 'Total Numerator', 'Total Denumerator', 'Total']);
+
+        lastRekap.pertanyaan.forEach(p => {
+          let totalNum = 0, totalDen = 0;
+          Object.keys(lastRekap.rekap[p.id] || {}).forEach(tgl => {
+            totalNum += lastRekap.rekap[p.id][tgl].numerator;
+            totalDen += lastRekap.rekap[p.id][tgl].denumerator;
+          });
+
+          let totalVal = '0';
+          if (totalDen > 0) {
+            totalVal = mode === 'persen'
+              ? `${((totalNum / totalDen) * 100).toFixed(2)}%`
+              : `${totalNum}/${totalDen}`;
+          }
+
+          rows.push([p.judul, totalNum, totalDen, totalVal]);
+        });
+      }
+
+      const csvContent = rows.map(e => e.join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `rekap-${lastRekap.bulan}.csv`);
+      link.click();
+    }
+
+    async function initPage() {
+      await loadSessionUser();
+      loadRekapKategori();
+      renderSidebar()
+    }
+
+    initPage();
+  </script>
+
+</body>
+</html>

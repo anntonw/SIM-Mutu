@@ -1,0 +1,27 @@
+{
+  "name": "nilai-mutu",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.11",
+    "bcryptjs": "^3.0.2",
+    "dotenv": "^16.6.0",
+    "express": "^5.1.0",
+    "express-session": "^1.18.1",
+    "multer": "^2.0.1",
+    "pg": "^8.16.2",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.7",
+    "tailwindcss": "^4.1.11"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
+}
